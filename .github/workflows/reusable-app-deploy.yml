@@ -1,0 +1,45 @@
+name: Reusable App Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: CodeDeploy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Create CodeDeploy Deployment
+        id: deploy
+        run: |
+          # CodeDeployの実行
+          # --application-name や --deployment-group-name は vars で管理するのがおすすめ
+          deployment_id=$(aws deploy create-deployment \
+            --application-name ${{ vars.CODE_DEPLOY_APP_NAME }} \
+            --deployment-group-name ${{ vars.CODE_DEPLOY_GROUP_NAME }} \
+            --description "Deploying commit ${{ github.sha }}" \
+            --github-location repository=${{ github.repository }},commitId=${{ github.sha }} \
+            --query "deploymentId" --output text)
+
+          echo "deployment_id=$deployment_id" >> $GITHUB_OUTPUT
+          echo "Deployment created: https://${{ vars.AWS_REGION }}://{{ vars.AWS_REGION }}#/deployments/$deployment_id"
+
+      - name: Wait for deployment to complete
+        run: |
+          echo "Waiting for deployment ${{ steps.deploy.outputs.deployment_id }}..."
+          aws deploy wait deployment-successful --deployment-id ${{ steps.deploy.outputs.deployment_id }}
+          echo "Deployment successful!"

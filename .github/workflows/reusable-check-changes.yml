@@ -1,0 +1,26 @@
+name: Reusable Check Changes
+
+on:
+  workflow_call:
+    outputs:
+      app:
+        description: "App folder changed"
+        value: ${{ jobs.filter.outputs.app }}
+      infra:
+        description: "Infra folder changed"
+        value: ${{ jobs.filter.outputs.infra }}
+
+jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # 4.0.1
+        id: filter
+        with:
+          filters: |
+            app: ["api/**", "cmd/**", "config/**", "internal/**", "pkg/**"]
+            infra: ["terraform/**"]

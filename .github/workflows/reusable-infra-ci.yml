@@ -1,0 +1,62 @@
+# .github/workflows/terraform-plan.yml
+name: Terraform Plan
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [ dev, prod ]
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 #v4.0.1
+        with:
+          install: true
+          cache: true
+
+      - name: Configure AWS Credentials (Shared -> Target)
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 #v6.1.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ vars.TF_WORKING_DIR }}
+        run: |
+          terraform init
+          terraform plan -no-color -input=false > plan_output.txt
+        env:
+          TF_CLI_ARGS_init: ${{ vars.TF_CLI_ARGS_init }}
+
+      - name: Post Plan to GitHub PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/envs/${{ matrix.env }}/plan_output.txt', 'utf8');
+            const output = `#### Terraform Plan (${{ matrix.env }}) 📖
+            \`\`\`terraform
+            ${plan}
+            \`\`\`
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })

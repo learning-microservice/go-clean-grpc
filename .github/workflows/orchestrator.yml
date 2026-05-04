@@ -1,0 +1,78 @@
+name: Main Orchestrator
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # 1. 共通セットアップ（環境判定・変更検知）
+  check-changes:
+    uses: ./.github/workflows/reusable-check-changes.yml
+
+  # 2. 環境名を決定するジョブ
+  setup-env:
+    runs-on: ubuntu-latest
+    outputs:
+      target_env: ${{ steps.set.outputs.target_env }}
+    steps:
+      - id: set
+        run: |
+          if [[ "$REF" == refs/tags/v* ]]; then
+            echo "target_env=production" >> $GITHUB_OUTPUT
+          else
+            echo "target_env=development" >> $GITHUB_OUTPUT
+          fi
+
+  # 3. アプリ CI (PR・マージ両方)
+  app-ci:
+    needs: [ check-changes ]
+    if: ${{ needs.check-changes.outputs.app == 'true' }}
+    uses: ./.github/workflows/reusable-app-ci.yml
+
+  # 4. アプリ Build & Push (マージ時のみ)
+  app-build-push:
+    needs: [ check-changes, setup-env, app-ci ]
+    if: |
+      always() && github.event_name == 'push' &&
+      needs.check-changes.outputs.app == 'true' &&
+      needs.app-ci.result == 'success'
+    uses: ./.github/workflows/reusable-app-build.yml
+    with:
+      environment: ${{ needs.setup-env.outputs.target_env }}
+    secrets: inherit
+
+  # 5. インフラ CI / Terraform Plan (PR・マージ両方)
+  infra-ci:
+    needs: [ check-changes, setup-env ]
+    if: ${{ needs.check-changes.outputs.infra == 'true' }}
+    uses: ./.github/workflows/reusable-infra-ci.yml
+    with:
+      environment: ${{ needs.setup-env.outputs.target_env }}
+
+  # 6. インフラ CD / Terraform Apply (マージ時のみ)
+  infra-apply:
+    needs: [ check-changes, setup-env, app-build-push, infra-ci ]
+    if: |
+      always() && github.event_name == 'push' &&
+      (needs.check-changes.outputs.infra == 'true' || needs.check-changes.outputs.app == 'true') &&
+      (needs.app-build-push.result == 'success' || needs.app-build-push.result == 'skipped') &&
+      needs.infra-ci.result == 'success'
+    uses: ./.github/workflows/reusable-infra-cd.yml
+    with:
+      environment: ${{ needs.setup-env.outputs.target_env }}
+    secrets: inherit
+
+  # 7. アプリ Deploy / CodeDeploy (マージ時のみ)
+  app-deploy:
+    needs: [ check-changes, setup-env, infra-apply ]
+    if: |
+      always() && github.event_name == 'push' &&
+      needs.check-changes.outputs.app == 'true' &&
+      needs.infra-apply.result == 'success'
+    uses: ./.github/workflows/reusable-app-deploy.yml
+    with:
+      environment: ${{ needs.setup-env.outputs.target_env }}
+    secrets: inherit

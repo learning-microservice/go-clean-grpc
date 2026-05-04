@@ -1,0 +1,45 @@
+name: Terraform Apply
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write # PRへのコメント投稿
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 #v4.0.1
+        with:
+          install: true
+          cache: true
+
+      - name: Configure AWS Credentials (Shared -> Target)
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 #v6.1.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Terraform Apply
+        id: apply
+        working-directory: ${{ vars.TF_WORKING_DIR }}
+        run: |
+          terraform init
+          terraform apply -no-color > apply_output.txt
+        env:
+          TF_CLI_ARGS_init: ${{ vars.TF_CLI_ARGS_init }}
+
+      - name: Post Apply Result to PR
+        run: bash .github/scripts/post-apply.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENV_NAME: ${{ vars.ENV_NAME }}
+          APPLY_OUTPUT_PATH: "terraform/envs/${{ vars.ENV_NAME }}/apply_output.txt"

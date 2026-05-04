@@ -1,0 +1,37 @@
+name: CI App
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 #v4.0.1
+        with:
+          install: true
+          cache: true
+
+      - name: Mock Generate
+        run: |
+          go generate ./...
+
+      - name: Buf Lint & Generate
+        run: |
+          go tool buf lint
+          go tool buf generate
+
+      - name: Run golangci-lint with formatter
+        run: |
+          go tool golangci-lint fmt -c .golangci.yml ./...
+          go tool golangci-lint run -c .golangci.yml ./...
+
+      - name: Check for formatting and lint fixes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "❌ Error: Unformatted code found."
+            exit 1
+          fi
+
+      - name: Run Tests
+        run: go test -v ./...
