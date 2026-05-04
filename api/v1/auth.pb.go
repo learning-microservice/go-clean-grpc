@@ -122,11 +122,11 @@ var File_v1_auth_proto protoreflect.FileDescriptor
 
 const file_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\rv1/auth.proto\x12\agrpc.v1\x1a\x1bbuf/validate/validate.proto\"T\n" +
+	"\rv1/auth.proto\x12\agrpc.v1\x1a\x1bbuf/validate/validate.proto\"Z\n" +
 	"\fLoginRequest\x12 \n" +
 	"\x05email\x18\x01 \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02`\x01R\x05email\x12\"\n" +
-	"\bpassword\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\bpassword\"%\n" +
+	"\xbaH\a\xc8\x01\x01r\x02`\x01R\x05email\x12(\n" +
+	"\bpassword\x18\x02 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\b\x18 R\bpassword\"%\n" +
 	"\rLoginResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token2E\n" +
 	"\vAuthService\x126\n" +
