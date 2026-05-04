@@ -1,0 +1,8 @@
+[tools]
+go = "1.26"
+terraform = "1.15"
+awscli = "2.34"
+
+[settings]
+log_level = "info"
+asdf_compat = true

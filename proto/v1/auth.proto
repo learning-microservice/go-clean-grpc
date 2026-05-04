@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+import "buf/validate/validate.proto";
+
+package grpc.v1;
+
+option go_package = "go-clean-grpc/api/v1;v1";
+
+service AuthService {
+  rpc Login (LoginRequest) returns (LoginResponse);
+}
+
+message LoginRequest {
+  string email = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.email = true
+  ];
+  string password = 2 [
+    (buf.validate.field).required = true
+  ];
+}
+
+message LoginResponse {
+  string token = 1;
+}
